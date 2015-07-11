@@ -9,8 +9,12 @@ var logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Ls
 
 // This method simulates the branch hash function approach
 // to efficiently copy the branch ID from node B to A.
-func Synchronize(a, b DB, id uint64, allow_suggest bool) (requests_sent int) {
-    //logger.Printf("SYNC id=%v suggest=%v", id, allow_suggest)
+
+func Synchronize(a, b DB, id uint64, with_suggestions bool) (requests_sent int) {
+    return do_sync(a, b, id, with_suggestions, true)
+}
+
+func do_sync(a, b DB, id uint64, allow_suggest_global, allow_suggest bool) (requests_sent int) {
     if a.Get(id) == nil {
         // The fetch the branch
         requests_sent += 1
@@ -20,7 +24,7 @@ func Synchronize(a, b DB, id uint64, allow_suggest bool) (requests_sent int) {
         return 1
     } else {
         requests_sent += 1
-        response := HandleCompareBranches(b, id, a.Hash(id), allow_suggest)
+        response := HandleCompareBranches(b, id, a.Hash(id), allow_suggest_global && allow_suggest)
         switch rsp := response.(type) {
             case *RspSuggest:
                 if a.Get(rsp.parent) != nil {
@@ -29,10 +33,10 @@ func Synchronize(a, b DB, id uint64, allow_suggest bool) (requests_sent int) {
                     for _, post := range HandleGetBranch(b, rsp.id) {
                         a.Put(post)
                     }
-                    requests_sent += Synchronize(a, b, id, true)
+                    requests_sent += do_sync(a, b, id, allow_suggest_global, true)
                 } else {
                     // Invalid parent, retry without suggestions
-                    requests_sent += Synchronize(a, b, id, false)
+                    requests_sent += do_sync(a, b, id, allow_suggest_global, false)
                 }
 
             case *RspChildren:
@@ -44,7 +48,7 @@ func Synchronize(a, b DB, id uint64, allow_suggest bool) (requests_sent int) {
                         acks += 1
                         tmp := child.Id
                         go func(){
-                            ack_chan <- Synchronize(a, b, tmp, true)
+                            ack_chan <- do_sync(a, b, tmp, allow_suggest_global, true)
                         }()
                     }
                 }
@@ -66,7 +70,9 @@ func Synchronize(a, b DB, id uint64, allow_suggest bool) (requests_sent int) {
 
 func HandleCompareBranches(db DB, id, hash uint64, allow_suggest bool) Response {
     result := do_compare_branches(db, id, hash, allow_suggest)
-    logger.Printf("CMP id=%v hash=%v allow=%v | Result=(%v) %+v", id, hash, allow_suggest, reflect.TypeOf(result), result)
+    if LoggingEnabled {
+        logger.Printf("CMP id=%v hash=%v allow=%v | Result=(%v) %+v", id, hash, allow_suggest, reflect.TypeOf(result), result)
+    }
     return result
 }
 
@@ -95,7 +101,9 @@ func do_compare_branches(db DB, id, hash uint64, allow_suggest bool) Response {
 
 func HandleGetBranch(db DB, id uint64) []Post {
     result := do_get_branch(db, id)
-    logger.Printf("GET id=%v | Result=%+v", id, result)
+    if LoggingEnabled {
+        logger.Printf("GET id=%v | Result=%+v", id, result)
+    }
     return result
 }
 

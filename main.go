@@ -1,15 +1,29 @@
 package main
 import (
     "fmt"
-    "math/rand"
-    "time"
     "github.com/Eipifi/aldeon/bhf"
 )
 
+const ALLOW_SUGGEST = true
+const ITERATIONS = 1000
 
 func main() {
-    rand.Seed(time.Now().UTC().UnixNano())
+    bhf.LoggingEnabled = false
+    bhf.NewSeed()
 
+    var total_req, total_num int
+
+    for i := 0; i < ITERATIONS; i += 1 {
+        req, num := run(4, 4, 0.5)
+        total_req += req
+        total_num += num
+    }
+
+    fmt.Println("Requests sent: ", float64(total_req) / float64(ITERATIONS))
+    fmt.Println("Posts copied: ", float64(total_num) / float64(ITERATIONS))
+}
+
+func run(depth, width int, probability float64) (int, int) {
     // Two databases
     db_local := bhf.NewDB()
     db_remote := bhf.NewDB()
@@ -19,13 +33,12 @@ func main() {
 
     // Generate the test instance
     db_remote.Put(root)
-    bhf.GenerateRandomBalanced(db_remote, root.Id, 5, 4) // tree of depth 5 and width 4
-    bhf.CopyPartially(db_local, db_remote, root.Id, 0.5) // copy each branch with 50% chance
+    bhf.GenerateRandomBalanced(db_remote, root.Id, depth, width)
+    bhf.CopyPartially(db_local, db_remote, root.Id, probability)
 
     local_size := db_local.Size()
     remote_size := db_remote.Size()
 
-    requests_sent := bhf.Synchronize(db_local, db_remote, root.Id, true)
-    fmt.Println("Requests sent: ", requests_sent)
-    fmt.Println("Posts copied: ", remote_size - local_size)
+    requests_sent := bhf.Synchronize(db_local, db_remote, root.Id, ALLOW_SUGGEST)
+    return requests_sent, remote_size - local_size
 }

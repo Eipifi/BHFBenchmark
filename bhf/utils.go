@@ -1,12 +1,10 @@
 package bhf
-import "math/rand"
+import (
+    "math/rand"
+    "time"
+)
 
-
-func assert(condition bool) {
-    if ! condition {
-        panic("Condition failed")
-    }
-}
+var LoggingEnabled = true
 
 func random_uint64() uint64 {
     return uint64(rand.Uint32()) << 32 + uint64(rand.Uint32())
@@ -20,3 +18,6 @@ func random_float64() float64 {
     return rand.Float64()
 }
 
+func NewSeed() {
+    rand.Seed(time.Now().UTC().UnixNano())
+}
