@@ -4,26 +4,27 @@ import (
     "github.com/Eipifi/aldeon/bhf"
 )
 
-const ALLOW_SUGGEST = true
-const ITERATIONS = 1000
+const ALLOW_SUGGEST = false
+const ITERATIONS = 1
 
 func main() {
-    bhf.LoggingEnabled = false
-    bhf.NewSeed()
+    bhf.LoggingEnabled = true
+    //bhf.NewSeed()
 
     var total_req, total_num int
 
     for i := 0; i < ITERATIONS; i += 1 {
-        req, num := run(4, 4, 0.5)
+        req, num := run()
         total_req += req
         total_num += num
+        fmt.Println(i)
     }
 
     fmt.Println("Requests sent: ", float64(total_req) / float64(ITERATIONS))
     fmt.Println("Posts copied: ", float64(total_num) / float64(ITERATIONS))
 }
 
-func run(depth, width int, probability float64) (int, int) {
+func run() (int, int) {
     // Two databases
     db_local := bhf.NewDB()
     db_remote := bhf.NewDB()
@@ -33,8 +34,8 @@ func run(depth, width int, probability float64) (int, int) {
 
     // Generate the test instance
     db_remote.Put(root)
-    bhf.GenerateRandomBalanced(db_remote, root.Id, depth, width)
-    bhf.CopyPartially(db_local, db_remote, root.Id, probability)
+    bhf.GenerateFurryList(db_remote, root.Id, 100, 3, 5)
+    bhf.CopyPartially(db_local, db_remote, root.Id, 0.95)
 
     local_size := db_local.Size()
     remote_size := db_remote.Size()
