@@ -3,12 +3,11 @@ import (
     "fmt"
     "math/rand"
     "time"
-    "aldeon/bhf"
+    "github.com/Eipifi/aldeon/bhf"
 )
 
 
 func main() {
-
     rand.Seed(time.Now().UTC().UnixNano())
 
     // Two databases
