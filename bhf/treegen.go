@@ -1,4 +1,4 @@
-package aldeon
+package bhf
 
 func CopyPartially(a, b DB, id uint64, probability float64) {
     a.Put(*(b.Get(id)))
