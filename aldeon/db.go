@@ -91,3 +91,7 @@ func (d *ActualDB) String() string {
     }
     return buffer.String()
 }
+
+func (d *ActualDB) Size() int {
+    return len(d.posts)
+}

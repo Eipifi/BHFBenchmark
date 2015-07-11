@@ -1,46 +1,56 @@
 package aldeon
+import (
+    "log"
+    "os"
+    "reflect"
+)
+
+var logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
 
 // This method simulates the branch hash function approach
 // to efficiently copy the branch ID from node B to A.
-func Synchronize(a, b DB, id uint64, allow_suggest bool) {
-
+func Synchronize(a, b DB, id uint64, allow_suggest bool) (requests_sent int) {
+    //logger.Printf("SYNC id=%v suggest=%v", id, allow_suggest)
     if a.Get(id) == nil {
         // The fetch the branch
+        requests_sent += 1
         for _, post := range HandleGetBranch(b, id) {
             a.Put(post)
         }
+        return 1
     } else {
+        requests_sent += 1
         response := HandleCompareBranches(b, id, a.Hash(id), allow_suggest)
         switch rsp := response.(type) {
-
             case *RspSuggest:
                 if a.Get(rsp.parent) != nil {
                     // we have the parent, download the suggested message and retry
+                    requests_sent += 1
                     for _, post := range HandleGetBranch(b, rsp.id) {
                         a.Put(post)
                     }
-                    Synchronize(a, b, id, true)
+                    requests_sent += Synchronize(a, b, id, true)
                 } else {
                     // Invalid parent, retry without suggestions
-                    Synchronize(a, b, id, false)
+                    requests_sent += Synchronize(a, b, id, false)
                 }
 
             case *RspChildren:
-                ack_chan := make(chan bool)
+                ack_chan := make(chan int)
                 acks := 0
                 for _, child := range rsp.children {
                     if child.Hash != a.Hash(child.Id) {
                         // This child needs synchronization. Run the procedure asynchronously
                         acks += 1
+                        tmp := child.Id
                         go func(){
-                            Synchronize(a, b, child.Id, true)
-                            ack_chan <- true
+                            ack_chan <- Synchronize(a, b, tmp, true)
                         }()
                     }
                 }
-                // Await for the whole process to finish
+                // Await for the asynchronous calls to finish
                 for i := 0; i < acks; i += 1 {
-                    <- ack_chan
+                    requests_sent += (<- ack_chan)
                 }
 
             case *RspBranchInSync:
@@ -51,9 +61,16 @@ func Synchronize(a, b DB, id uint64, allow_suggest bool) {
 
         }
     }
+    return
 }
 
 func HandleCompareBranches(db DB, id, hash uint64, allow_suggest bool) Response {
+    result := do_compare_branches(db, id, hash, allow_suggest)
+    logger.Printf("CMP id=%v hash=%v allow=%v | Result=(%v) %+v", id, hash, allow_suggest, reflect.TypeOf(result), result)
+    return result
+}
+
+func do_compare_branches(db DB, id, hash uint64, allow_suggest bool) Response {
     if db.Get(id) == nil { return &RspBranchNotFound{} }
 
     diff := db.Hash(id) ^ hash
@@ -77,11 +94,17 @@ func HandleCompareBranches(db DB, id, hash uint64, allow_suggest bool) Response 
 }
 
 func HandleGetBranch(db DB, id uint64) []Post {
+    result := do_get_branch(db, id)
+    logger.Printf("GET id=%v | Result=%+v", id, result)
+    return result
+}
+
+func do_get_branch(db DB, id uint64) []Post {
     result := make([]Post, 0)
     if post := db.Get(id); post != nil {
         result = append(result, *post)
         for _, child := range db.Children(id) {
-            result = append(result, HandleGetBranch(db, child)...)
+            result = append(result, do_get_branch(db, child)...)
         }
     }
     return result

@@ -25,4 +25,7 @@ type DB interface {
 
     // Fetch all the children of a given post
     Children(uint64) []uint64
+
+    // Size
+    Size() int
 }
