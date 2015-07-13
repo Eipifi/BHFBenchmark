@@ -15,7 +15,7 @@ type ActualDB struct {
     mtx sync.RWMutex
 }
 
-func NewDB() DB {
+func NewDB() *ActualDB {
     db := &ActualDB{}
     db.posts = make(map[uint64] Post)
     db.hashes = make(map[uint64] uint64)

@@ -33,7 +33,7 @@ func do_sync(a, b DB, id uint64, allow_suggest_global, allow_suggest bool) (requ
                     for _, post := range HandleGetBranch(b, rsp.id) {
                         a.Put(post)
                     }
-                    requests_sent += do_sync(a, b, id, allow_suggest_global, true)
+                    //requests_sent += do_sync(a, b, id, allow_suggest_global, true)
                 } else {
                     // Invalid parent, retry without suggestions
                     requests_sent += do_sync(a, b, id, allow_suggest_global, false)
